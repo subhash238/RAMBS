@@ -17,7 +17,7 @@ const startServer = async () => {
     await smartSync();
     
     // Start listening
-    app.listen(PORT, () => {
+    app.listen(PORT,'0.0.0.0', () => {
       logger.success(`🚀 Server started successfully on port ${PORT}`);
       logger.info(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
       logger.info(`💰 User model fields (depositBalance, withdrawBalance) have been added to database`);
