@@ -32,8 +32,8 @@ exports.getAllUsers = async (req, res) => {
     let where = {};
     
     if (type === 'admin') {
-      // Fetch only admin users
-      where.role = { [require("sequelize").Op.in]: adminRoles };
+      // Fetch only admin users (excluding superadmin)
+      where.role = { [require("sequelize").Op.in]: ['admin', 'manager'] };
     } else if (type === 'normal') {
       // Fetch only normal users
       where.role = { [require("sequelize").Op.notIn]: adminRoles };
@@ -66,6 +66,12 @@ exports.getAllUsers = async (req, res) => {
         { name: { [require("sequelize").Op.iLike]: `%${search}%` } },
         { email: { [require("sequelize").Op.iLike]: `%${search}%` } },
       ];
+    }
+
+    // Manager can only see users they created
+    const operator = req.user;
+    if (operator.role === ROLES.MANAGER) {
+      where.createdBy = operator.id;
     }
 
     const { count, rows } = await User.findAndCountAll({
@@ -139,7 +145,7 @@ exports.getUserById = async (req, res) => {
  */
 exports.createUser = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, userCreationLimit } = req.body;
     const creator = req.user;
     const targetRole = role || ROLES.USER;
 
@@ -156,8 +162,14 @@ exports.createUser = async (req, res) => {
       return error(res, `${creator.role} can only create: ${allowed}`, 403);
     }
 
-    // 3. Check user creation limits
-    const limitCheck = await checkUserLimit(creator.id, creator.role);
+    // 2.5 Manager can only create normal users (role: user)
+    if (creator.role === ROLES.MANAGER && targetRole !== ROLES.USER) {
+      logger.warn(`Manager ${creator.email} attempted to create ${targetRole}`);
+      return error(res, "Manager can only create normal users (role: user)", 403);
+    }
+
+    // 3. Check user creation limits (use creator's custom limit if available)
+    const limitCheck = await checkUserLimit(creator.id, creator.role, creator.userCreationLimit);
     if (limitCheck.exceeded) {
       logger.warn(`Limit exceeded: ${creator.email} has ${limitCheck.count}/${limitCheck.limit} users`);
       return error(res, `Maximum ${limitCheck.limit} users reached`, 403);
@@ -173,15 +185,22 @@ exports.createUser = async (req, res) => {
       return error(res, message, existingUser.isDeleted ? 400 : 409);
     }
 
-    // 5. Create user
+    // 5. Create user (set custom limit for admin/manager)
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await User.create({
+    const userData = {
       name,
       email,
       password: hashedPassword,
       role: targetRole,
       createdBy: creator.id,
-    });
+    };
+
+    // Set custom user creation limit for admin/manager (default 50)
+    if (targetRole === ROLES.ADMIN || targetRole === ROLES.MANAGER) {
+      userData.userCreationLimit = userCreationLimit || 50;
+    }
+
+    const user = await User.create(userData);
 
     // 6. Set activity data for middleware (creation has no old data)
     res.locals.activityData = {
@@ -209,7 +228,7 @@ exports.createUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, userCreationLimit } = req.body;
     const operator = req.user;
 
     // 1. Find target user
@@ -245,17 +264,25 @@ exports.updateUser = async (req, res) => {
     const oldData = {
       name: user.name,
       email: user.email,
-      role: user.role
+      role: user.role,
+      userCreationLimit: user.userCreationLimit
     };
 
     // 6. Apply updates
     if (name) user.name = name;
     if (email) user.email = email;
     if (password) user.password = await bcrypt.hash(password, 10);
-    
+
     // Only superadmin can change roles
     if (role && operator.role === ROLES.SUPERADMIN) {
       user.role = role;
+    }
+
+    // Only superadmin/admin can update userCreationLimit for admin/manager
+    if (userCreationLimit !== undefined && 
+        (user.role === ROLES.ADMIN || user.role === ROLES.MANAGER) &&
+        (operator.role === ROLES.SUPERADMIN || operator.role === ROLES.ADMIN)) {
+      user.userCreationLimit = userCreationLimit;
     }
 
     user.updatedBy = operator.id;
@@ -265,7 +292,8 @@ exports.updateUser = async (req, res) => {
     const newData = {
       name: user.name,
       email: user.email,
-      role: user.role
+      role: user.role,
+      userCreationLimit: user.userCreationLimit
     };
 
     // 8. Set activity data for middleware
@@ -436,5 +464,173 @@ exports.getSystemLogs = async (req, res) => {
   } catch (err) {
     logger.error(`Error fetching system logs: ${err.message}`);
     return error(res, "Failed to fetch system logs", 500);
+  }
+};
+
+/**
+ * Get current admin/superadmin own profile
+ * @route GET /api/admin/me
+ */
+exports.getMyProfile = async (req, res) => {
+  try {
+    const user = req.user;
+
+    logger.info(`Admin ${user.email} retrieved own profile`);
+    return success(res, "Profile retrieved successfully", {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    });
+  } catch (err) {
+    logger.error(`Error fetching admin profile: ${err.message}`);
+    return error(res, "Failed to fetch profile", 500);
+  }
+};
+
+/**
+ * Update current admin/superadmin own profile
+ * @route PUT /api/admin/me
+ */
+exports.updateMyProfile = async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const user = req.user;
+
+    // Security: Prevent role change through this endpoint
+    if (req.body.role !== undefined) {
+      logger.warn(`Admin ${user.email} attempted to change own role`);
+      return error(res, "Cannot change your own role through profile update", 403);
+    }
+
+    // Check if email is being changed and if it already exists
+    if (email && email !== user.email) {
+      const exists = await checkEmailExists(email, user.id);
+      if (exists) {
+        return error(res, "Email already exists", 409);
+      }
+      user.email = email;
+    }
+
+    if (name) {
+      user.name = name;
+    }
+
+    await user.save();
+
+    logger.success(`Admin ${user.email} updated own profile`);
+    return success(res, "Profile updated successfully", {
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    });
+  } catch (err) {
+    logger.error(`Error updating admin profile: ${err.message}`);
+    return error(res, "Failed to update profile", 500);
+  }
+};
+
+/**
+ * Get user creation count and limit for current admin/manager
+ * @route GET /api/admin/user-creation-stats
+ */
+exports.getUserCreationStats = async (req, res) => {
+  try {
+    const user = req.user;
+
+    // Get count and limit (use user's custom limit if available)
+    const limitData = await checkUserLimit(user.id, user.role, user.userCreationLimit);
+
+    // Superadmin has no limit
+    const isUnlimited = !limitData.limit;
+
+    logger.info(`User creation stats retrieved for ${user.email}`);
+    return success(res, "User creation stats retrieved", {
+      stats: {
+        created: limitData.count || 0,
+        limit: limitData.limit || "unlimited",
+        remaining: isUnlimited ? "unlimited" : Math.max(0, limitData.limit - limitData.count),
+        percentage: isUnlimited ? 0 : Math.round((limitData.count / limitData.limit) * 100),
+        canCreate: isUnlimited ? true : !limitData.exceeded,
+        role: user.role,
+        userCreationLimit: user.userCreationLimit
+      },
+    });
+  } catch (err) {
+    logger.error(`Error fetching user creation stats: ${err.message}`);
+    return error(res, "Failed to fetch stats", 500);
+  }
+};
+
+/**
+ * Change admin/superadmin own password or any user's password
+ * @route POST /api/admin/change-password/:id?
+ */
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+    const { id } = req.params;
+    const operator = req.user;
+
+    // Determine target user ID - if id param provided, change that user's password
+    // Otherwise change own password
+    const targetUserId = id || operator.id;
+    const isChangingOwnPassword = targetUserId === operator.id;
+
+    // Validation: newPassword is always required
+    if (!newPassword || newPassword.length < 6) {
+      return error(res, "New password must be at least 6 characters", 400);
+    }
+
+    // Validation: confirmPassword must match newPassword (only when changing own password)
+    if (isChangingOwnPassword && newPassword !== confirmPassword) {
+      return error(res, "Passwords do not match", 400);
+    }
+
+    // Validation: currentPassword required only when changing own password
+    if (isChangingOwnPassword && !currentPassword) {
+      return error(res, "Current password is required", 400);
+    }
+
+    // Find the target user
+    const user = await User.findByPk(targetUserId);
+    if (!user) {
+      return error(res, "User not found", 404);
+    }
+
+    // If changing own password, verify current password
+    if (isChangingOwnPassword) {
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) {
+        logger.warn(`Password change failed: Invalid current password for user ${user.email}`);
+        return error(res, "Current password is incorrect", 400);
+      }
+    }
+
+    // Hash and update new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    const actionMsg = isChangingOwnPassword ? "own password" : `${user.email}'s password`;
+    logger.success(`${operator.email} changed ${actionMsg}`);
+    
+    return success(res, "Password changed successfully", {
+      message: isChangingOwnPassword 
+        ? "Your password has been updated" 
+        : `Password for ${user.email} has been updated`
+    });
+  } catch (err) {
+    logger.error(`Change password error: ${err.message}`);
+    return error(res, "Failed to change password", 500);
   }
 };

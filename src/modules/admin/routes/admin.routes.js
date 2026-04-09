@@ -8,11 +8,13 @@ const {
   assignRoleValidator,
   idValidator,
   paginationValidator,
+  changePasswordValidator,
 } = require("../../../middlewares/validation.middleware");
 const adminController = require("../controllers/admin.controller");
 const settingsRoutes = require("./settings.routes");
 const historyRoutes = require("./history.routes");
 const userLogsController = require("../controllers/userLogs.controller");
+const permissionRoutes = require("./permission.routes");
 
 // Apply authentication to all admin routes
 router.use(protect);
@@ -37,7 +39,7 @@ router.get(
   adminController.getUserById
 );
 
-// Create new user
+// Create new user (manager can only create normal users)
 router.post(
   "/users",
   createUserValidator,
@@ -78,6 +80,34 @@ router.get(
   adminController.getDeletedUsers
 );
 
+// Get current admin/superadmin own profile
+router.get(
+  "/me",
+  authorize('superadmin', 'admin', 'manager'),
+  adminController.getMyProfile
+);
+
+// Update current admin/superadmin own profile
+router.put(
+  "/me",
+  authorize('superadmin', 'admin', 'manager'),
+  adminController.updateMyProfile
+);
+
+// Get user creation count and limit (for admin/manager only)
+router.get(
+  "/user-creation-stats",
+  authorize('admin', 'manager'),
+  adminController.getUserCreationStats
+);
+
+// Change admin/superadmin own password or any user's password
+router.post(
+  "/change-password/:id?",
+  authorize('superadmin', 'admin'),
+  adminController.changePassword
+);
+
 
 // Get system logs
 router.get(
@@ -96,5 +126,9 @@ router.use("/settings", settingsRoutes);
 // ============================================
 router.use("/history", historyRoutes);
 
+// ============================================
+// Permission Routes (Superadmin only)
+// ============================================
+router.use("/permissions", permissionRoutes);
 
 module.exports = router;

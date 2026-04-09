@@ -9,6 +9,7 @@ const {
   deleteHistory,
   
 } = require("../controllers/history.controller");
+const { authorize } = require("../../../middlewares/role.middleware");
 
 // Apply authentication middleware to all routes
 router.use(protect);
@@ -19,8 +20,8 @@ router.get("/", getAllHistory);
 // GET /api/admin/history/:id - Get history by ID
 router.get("/:id", getHistoryById);
 
-// POST /api/admin/history - Create new history record
-router.post("/", createHistory);
+// POST /api/admin/history - Create new history record (manager can create for their users only)
+router.post("/", authorize('superadmin', 'admin', 'manager'), createHistory);
 
 // PUT /api/admin/history/:id - Update history record
 router.put("/:id", updateHistory);

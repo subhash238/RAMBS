@@ -10,6 +10,7 @@ const userLogsMiddleware = require("./middlewares/userLogs.middleware");
 // Import modules
 const adminModule = require("./modules/admin");
 const userModule = require("./modules/user");
+const matchesModule = require("./modules/matches");
 
 const app = express();
 // If running behind a proxy (nginx, load balancer), trust specific proxy headers
@@ -119,6 +120,7 @@ app.get("/health", async (req, res) => {
 // Mount modules
 app.use(`/api${adminModule.prefix}`, adminModule.routes);
 app.use(`/api${userModule.prefix}`, userModule.routes);
+app.use(`/api${matchesModule.prefix}`, matchesModule.routes);
 
 // ============================================
 // 404 HANDLER

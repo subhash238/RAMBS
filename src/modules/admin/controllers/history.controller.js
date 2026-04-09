@@ -2,18 +2,45 @@ const logger = require("../../../config/logger");
 const { success, error } = require("../../../common/response");
 const UserHistoryService = require("../../../services/userHistory.service");
 
+const { User } = require("../../../models");
+const { ROLES } = require("../../../common/roles");
+
 /**
- * Create history record for any user (Admin only)
+ * Create history record for any user (Admin only, Manager only for their created users)
  * @route POST /api/admin/history
  */
 exports.createHistory = async (req, res) => {
   try {
     const { userId } = req.body;
-    
+    const operator = req.user;
+
     if (!userId) {
       return error(res, "User ID is required", 400);
     }
-    
+
+    // Manager can only create history for users they created
+    if (operator.role === ROLES.MANAGER) {
+      const targetUser = await User.findByPk(userId, {
+        attributes: ['id', 'createdBy', 'role']
+      });
+
+      if (!targetUser) {
+        return error(res, "User not found", 404);
+      }
+
+      // Manager can only create history for 'user' role users they created
+      if (targetUser.createdBy !== operator.id) {
+        logger.warn(`Manager ${operator.email} attempted to create history for user ${userId} they did not create`);
+        return error(res, "You can only create history records for users you created", 403);
+      }
+
+      // Manager can only create history for 'user' role, not admin/manager
+      if (targetUser.role !== ROLES.USER) {
+        logger.warn(`Manager ${operator.email} attempted to create history for ${targetUser.role}`);
+        return error(res, "You can only create history records for normal users", 403);
+      }
+    }
+
     // Use common service - pass req.body and target user ID
     const result = await UserHistoryService.createHistoryRecord(req, userId);
     

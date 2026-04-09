@@ -26,14 +26,20 @@ const canCreateRole = (creatorRole, targetRole) => {
 };
 
 /**
- * Check user creation limit for a role
+ * Check user creation limit for a user (uses per-user limit from database)
  * @param {string} creatorId - UUID of the creator
  * @param {string} creatorRole - Role of the creator
+ * @param {number} customLimit - Optional custom limit (from user's record)
  * @returns {Object} - { exceeded: boolean, count: number, limit: number }
  */
-const checkUserLimit = async (creatorId, creatorRole) => {
-  const limit = USER_LIMITS[creatorRole];
-  if (!limit) return { exceeded: false };
+const checkUserLimit = async (creatorId, creatorRole, customLimit = null) => {
+  // Superadmin has no limit
+  if (creatorRole === ROLES.SUPERADMIN) {
+    return { exceeded: false, count: 0, limit: null };
+  }
+
+  // Use custom limit if provided, otherwise fall back to default
+  const limit = customLimit || USER_LIMITS[creatorRole] || 50;
 
   const count = await User.count({
     where: { createdBy: creatorId, isDeleted: false }

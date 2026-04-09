@@ -4,6 +4,7 @@ const Settings = require("./settings.model");
 const UserActivity = require("./user_activity.model");
 const History = require("./history.model");
 const UserLog = require('./user_logs.model')
+const Permission = require('./permission.model');
 const db = {};
 db.sequelize = sequelize;
 db.User = User;
@@ -11,6 +12,7 @@ db.Settings = Settings;
 db.UserLog = UserLog; 
 db.UserActivity = UserActivity;
 db.History = History;
+db.Permission = Permission;
 
 // ============================================
 // MODEL ASSOCIATIONS
@@ -55,6 +57,44 @@ UserLog.belongsTo(User, {
   as: 'logUser',
   onDelete: 'CASCADE',
   onUpdate: 'CASCADE'
+});
+
+// Settings associations for created_by and updated_by
+Settings.belongsTo(User, {
+  foreignKey: 'created_by',
+  as: 'createdBy',
+  targetKey: 'id'
+});
+
+Settings.belongsTo(User, {
+  foreignKey: 'updated_by',
+  as: 'updatedBy',
+  targetKey: 'id'
+});
+
+// Permission associations
+User.hasMany(Permission, {
+  foreignKey: 'user_id',
+  as: 'permissions',
+  sourceKey: 'id'
+});
+
+Permission.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user',
+  targetKey: 'id'
+});
+
+Permission.belongsTo(User, {
+  foreignKey: 'created_by',
+  as: 'createdBy',
+  targetKey: 'id'
+});
+
+Permission.belongsTo(User, {
+  foreignKey: 'updated_by',
+  as: 'updatedBy',
+  targetKey: 'id'
 });
 
 module.exports = db;

@@ -49,6 +49,12 @@ const User = sequelize.define("User", {
     allowNull: false,
     comment: "Total withdrawn balance for the user"
   },
+  userCreationLimit: {
+    type: DataTypes.INTEGER,
+    defaultValue: 50,
+    allowNull: false,
+    comment: "Maximum number of users this admin/manager can create"
+  },
   deletedAt: {
     type: DataTypes.DATE,
     allowNull: true,

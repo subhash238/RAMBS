@@ -263,7 +263,7 @@ class UserHistoryService {
         include: [
           {
             model: User,
-            as: "user",
+            as: "historyUser",
             attributes: ["id", "name", "email"],
             required: false,
             where: {
@@ -335,7 +335,7 @@ class UserHistoryService {
         include: [
           {
             model: User,
-            as: "user",
+            as: "historyUser",
             attributes: ["id", "name", "email"],
             required: false,
             where: {
@@ -519,32 +519,53 @@ class UserHistoryService {
     try {
       const parsedAmount = parseFloat(amount);
 
-      // Simple and accurate balance logic
+      // Balance update logic for all combinations
       if (tranType === "debit") {
         // Debit means CUTTING from wallet
         if (walletType === "withdraw") {
-          // Check withdraw balance before cutting
-          const currentWithdraw = parseFloat(user.depositBalance || 0);
+          // Subtract from withdrawBalance
+          const currentWithdraw = parseFloat(user.withdrawBalance || 0);
           if (currentWithdraw < parsedAmount) {
             throw new Error(
               `Insufficient withdraw balance. Available: ${currentWithdraw}, Required: ${parsedAmount}`,
             );
           }
-          user.depositBalance = (currentWithdraw - parsedAmount).toFixed(2);
+          user.withdrawBalance = (currentWithdraw - parsedAmount).toFixed(2);
           logger.info(
             `Debited ${parsedAmount} from withdraw balance. New: ${user.withdrawBalance}`,
+          );
+        } else if (walletType === "deposit") {
+          // Subtract from depositBalance
+          const currentDeposit = parseFloat(user.depositBalance || 0);
+          if (currentDeposit < parsedAmount) {
+            throw new Error(
+              `Insufficient deposit balance. Available: ${currentDeposit}, Required: ${parsedAmount}`,
+            );
+          }
+          user.depositBalance = (currentDeposit - parsedAmount).toFixed(2);
+          logger.info(
+            `Debited ${parsedAmount} from deposit balance. New: ${user.depositBalance}`,
           );
         }
       } else if (tranType === "credit") {
         // Credit means ADDING to wallet
-        if (walletType === "deposit") {
+        if (walletType === "withdraw") {
+          // Add to withdrawBalance
+          user.withdrawBalance = (
+            parseFloat(user.withdrawBalance || 0) + parsedAmount
+          ).toFixed(2);
+          logger.info(
+            `Credited ${parsedAmount} to withdraw balance. New: ${user.withdrawBalance}`,
+          );
+        } else if (walletType === "deposit") {
+          // Add to depositBalance
           user.depositBalance = (
             parseFloat(user.depositBalance || 0) + parsedAmount
           ).toFixed(2);
           logger.info(
             `Credited ${parsedAmount} to deposit balance. New: ${user.depositBalance}`,
           );
-        } 
+        }
       } else {
         throw new Error(
           `Invalid transaction type: ${tranType}. Must be: debit, credit`,

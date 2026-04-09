@@ -1,4 +1,4 @@
-const { Settings } = require("../../../models");
+const { Settings, User } = require("../../../models");
 const logger = require("../../../config/logger");
 const { success, error } = require("../../../common/response");
 const { cacheManager } = require("../../../services/cache.service");
@@ -34,12 +34,32 @@ exports.getAllSettings = async (req, res) => {
         maintenance_value: { [require("sequelize").Op.iLike]: `%${search}%` }
       } : {};
 
-      // Optimized query with pagination
+      // Manager can only see settings they created
+      const operator = req.user;
+      if (operator.role === 'manager') {
+        where.created_by = operator.id;
+      }
+
+      // Optimized query with pagination and user info
       const { count, rows } = await Settings.findAndCountAll({
         where,
         offset: (page - 1) * limit,
         limit: parseInt(limit),
-        attributes: ['id', 'is_maintenance', 'maintenance_value', 'createdAt'],
+        attributes: ['id', 'is_maintenance', 'maintenance_value', 'createdAt', 'updatedAt'],
+        include: [
+          {
+            model: User,
+            as: 'createdBy',
+            attributes: ['name'],
+            required: false
+          },
+          {
+            model: User,
+            as: 'updatedBy',
+            attributes: ['name'],
+            required: false
+          }
+        ],
         order: [["createdAt", "DESC"]]
       });
 
@@ -87,6 +107,12 @@ exports.getSettingById = async (req, res) => {
       return error(res, "Setting not found", 404);
     }
 
+    // Manager can only view settings they created
+    const operator = req.user;
+    if (operator.role === 'manager' && setting.created_by !== operator.id) {
+      return error(res, "You can only view settings you created", 403);
+    }
+
     return success(res, "Setting retrieved successfully", { setting });
   } catch (err) {
     logger.error(`Get setting error: ${err.message}`);
@@ -103,6 +129,17 @@ exports.createSetting = async (req, res) => {
 
     if (is_maintenance === undefined || is_maintenance === null) {
       return error(res, "is_maintenance is required", 400);
+    }
+
+    // Manager can only create one setting
+    const operator = req.user;
+    if (operator.role === 'manager') {
+      const existingSetting = await Settings.findOne({
+        where: { created_by: operator.id }
+      });
+      if (existingSetting) {
+        return error(res, "You can only create one setting. Use update to modify your existing setting.", 403);
+      }
     }
 
     const setting = await Settings.create({
@@ -141,6 +178,12 @@ exports.updateSetting = async (req, res) => {
     const setting = await Settings.findByPk(id);
     if (!setting) {
       return error(res, "Setting not found", 404);
+    }
+
+    // Manager can only update settings they created
+    const operator = req.user;
+    if (operator.role === 'manager' && setting.created_by !== operator.id) {
+      return error(res, "You can only update settings you created", 403);
     }
 
     // Store old data for activity logging
@@ -200,6 +243,12 @@ exports.deleteSetting = async (req, res) => {
     const setting = await Settings.findByPk(id);
     if (!setting) {
       return error(res, "Setting not found", 404);
+    }
+
+    // Manager can only delete settings they created
+    const operator = req.user;
+    if (operator.role === 'manager' && setting.created_by !== operator.id) {
+      return error(res, "You can only delete settings you created", 403);
     }
 
     // Store old data for activity logging

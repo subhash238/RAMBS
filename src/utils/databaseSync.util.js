@@ -14,8 +14,11 @@ const smartSync = async () => {
     { name: "Settings", file: "settings.model.js" },
     { name: "UserActivity", file: "user_activity.model.js" },
     { name: "History", file: "history.model.js" },
-    { name: "UserLog", file: "user_logs.model.js" }
+    { name: "UserLog", file: "user_logs.model.js" },
+    { name: "Permission", file: "permission.model.js" }
   ];
+  
+  logger.info("📋 Note: User model now includes 'userCreationLimit' field for custom user limits");
 
   const results = {
     successful: [],
