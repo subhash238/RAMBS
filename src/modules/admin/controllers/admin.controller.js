@@ -22,7 +22,7 @@ const {
  */
 exports.getAllUsers = async (req, res) => {
   try {
-    const { page = 1, limit = 10, role, search, type } = req.query;
+    const { page = 1, limit = 10, role, search, type, status, timeframe } = req.query;
     const offset = (page - 1) * limit;
 
     // Define admin roles
@@ -34,12 +34,16 @@ exports.getAllUsers = async (req, res) => {
     if (type === 'admin') {
       // Fetch only admin users (excluding superadmin)
       where.role = { [require("sequelize").Op.in]: ['admin', 'manager'] };
+      
+      // Filter by isDeleted status for admin type too
+      if (status === 'active') {
+        where.isDeleted = false;
+      } else if (status === 'deleted') {
+        where.isDeleted = true;
+      }
     } else if (type === 'normal') {
       // Fetch only normal users
       where.role = { [require("sequelize").Op.notIn]: adminRoles };
-      
-      // Add additional filters for normal users
-      const { status, timeframe } = req.query;
       
       // Filter by isDeleted status
       if (status === 'active') {
@@ -74,11 +78,35 @@ exports.getAllUsers = async (req, res) => {
       where.createdBy = operator.id;
     }
 
+    // Admin can only see managers they created (not other admins' managers)
+    if (operator.role === ROLES.ADMIN && type === 'admin') {
+      where.createdBy = operator.id;
+    }
+
+    // Admin/Superadmin can only see deleted users they created
+    if ((operator.role === ROLES.ADMIN || operator.role === ROLES.SUPERADMIN) && status === 'deleted') {
+      where.createdBy = operator.id;
+    }
+
     const { count, rows } = await User.findAndCountAll({
       where,
       offset,
       limit: parseInt(limit),
       attributes: { exclude: ["password"] },
+      include: [
+        {
+          model: User,
+          as: 'createdByUser',
+          attributes: ['id', 'name'],
+          required: false
+        },
+        {
+          model: User,
+          as: 'updatedByUser',
+          attributes: ['id', 'name'],
+          required: false
+        }
+      ],
       order: [["createdAt", "DESC"]],
     });
 
@@ -98,7 +126,6 @@ exports.getAllUsers = async (req, res) => {
     
     // Add filter information for normal users
     if (type === 'normal') {
-      const { status, timeframe } = req.query;
       responseData.filters = {
         status: status || 'all',  // active, deleted, or all
         timeframe: timeframe || 'all'  // new (within 5 days) or all
@@ -338,6 +365,23 @@ exports.deleteUser = async (req, res) => {
     if (!canModifyRole(operator.role, user.role)) {
       logger.warn(`Permission denied: ${operator.role} cannot delete ${user.role}`);
       return error(res, `Cannot delete ${user.role}`, 403);
+    }
+
+    // 3.4 Admin cannot delete other admins, only managers
+    if (operator.role === ROLES.ADMIN && user.role === ROLES.ADMIN) {
+      logger.warn(`Admin ${operator.email} attempted to delete another admin`);
+      return error(res, "Admin can only delete managers, not other admins", 403);
+    }
+
+    // 3.5 Admin/Superadmin can only delete managers/admins they created
+    if (
+      (operator.role === ROLES.ADMIN && user.role === ROLES.MANAGER) ||
+      (operator.role === ROLES.SUPERADMIN && (user.role === ROLES.ADMIN || user.role === ROLES.MANAGER))
+    ) {
+      if (user.createdBy !== operator.id) {
+        logger.warn(`${operator.role} ${operator.email} attempted to delete ${user.role} ${id} they did not create`);
+        return error(res, `You can only delete ${user.role}s that you created`, 403);
+      }
     }
 
     // 4. Handle permanent deletion (superadmin only)

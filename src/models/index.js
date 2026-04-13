@@ -97,4 +97,19 @@ Permission.belongsTo(User, {
   targetKey: 'id'
 });
 
+// User self-referencing associations for createdBy and updatedBy
+User.belongsTo(User, {
+  foreignKey: 'createdBy',
+  as: 'createdByUser',
+  targetKey: 'id',
+  constraints: false
+});
+
+User.belongsTo(User, {
+  foreignKey: 'updatedBy',
+  as: 'updatedByUser',
+  targetKey: 'id',
+  constraints: false
+});
+
 module.exports = db;
