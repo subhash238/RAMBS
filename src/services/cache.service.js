@@ -234,6 +234,7 @@ module.exports = {
   cacheManager,
   
   // Convenience methods
+  get: (key) => cacheManager.get(key),
   getOrSet: (key, fallback, options) => cacheManager.getOrSet(key, fallback, options),
   set: (key, data, options) => cacheManager.set(key, data, options),
   delete: (keys) => cacheManager.delete(keys),
