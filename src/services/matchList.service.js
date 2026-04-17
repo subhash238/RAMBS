@@ -55,8 +55,10 @@ class MatchListService {
       const result = await this.fetchMatchList();
 
       if (result.success) {
+        // Add timestamp when data is cached in Redis
+        result.cachedAt = new Date().toISOString();
         await cacheManager.set(CACHE_KEY, result, { ttl: CACHE_TTL });
-        logger.info("Match list cache updated successfully");
+        logger.info(`Match list cache updated successfully at ${result.cachedAt}`);
       } else {
         logger.warn("Failed to update match list cache - API error");
       }

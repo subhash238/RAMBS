@@ -1,4 +1,6 @@
 require("dotenv").config();
+const http = require("http");
+const { Server } = require("socket.io");
 const app = require("./src/app");
 const logger = require("./src/config/logger");
 const { sequelize } = require("./src/models");
@@ -6,8 +8,23 @@ const smartSync = require("./src/utils/databaseSync.util");
 const matchListService = require("./src/services/matchList.service");
 const matchScoreboardService = require("./src/services/matchScoreboard.service");
 const matchDataService = require("./src/services/matchData.service");
+const dragonTigerController = require("./src/modules/games/controllers/dragonTiger.controller");
 
 const PORT = process.env.PORT || 3000;
+
+// Create HTTP server
+const server = http.createServer(app);
+
+// Setup Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: process.env.CLIENT_URL || "*",
+    methods: ["GET", "POST"],
+  },
+});
+
+// Initialize Dragon Tiger socket events
+dragonTigerController.handleSocketEvents(io);
 
 // Start server
 const startServer = async () => {
@@ -20,21 +37,22 @@ const startServer = async () => {
     await smartSync();
     
     // Start listening
-    app.listen(PORT,'0.0.0.0', () => {
+    server.listen(PORT, '0.0.0.0', () => {
       logger.success(`🚀 Server started successfully on port ${PORT}`);
       logger.info(`🌍 Environment: ${process.env.NODE_ENV || "development"}`);
       logger.info(`💰 User model fields (depositBalance, withdrawBalance) have been added to database`);
       logger.info(`⚡ Redis caching enabled for user and admin settings`);
       logger.info(`🔧 Activity logging restricted to admin-level users (superadmin, admin, manager)`);
+      logger.info(`🎮 Dragon Tiger game module loaded with Socket.IO`);
       
       // Start match list scheduler (updates every 5 seconds)
       matchListService.startScheduler();
       
       // Start match scoreboard scheduler (updates every 5 seconds)
-      matchScoreboardService.startScheduler();
+      //matchScoreboardService.startScheduler();
       
       // Start match data scheduler (updates every 5 seconds)
-      matchDataService.startScheduler();
+      //matchDataService.startScheduler();
     });
   } catch (err) {
     logger.error(`💥 Failed to start server: ${err.message}`);

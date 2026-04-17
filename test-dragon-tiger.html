@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dragon Tiger Test</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #1a1a2e; color: white; }
+    .box { background: #16213e; padding: 15px; margin: 10px 0; border-radius: 8px; }
+    button { padding: 10px 20px; margin: 5px; cursor: pointer; font-size: 16px; }
+    .dragon { background: #ff6b6b; color: white; }
+    .tiger { background: #4ecdc4; color: white; }
+    .tie { background: #ffe66d; color: black; }
+    #timer { font-size: 48px; color: #00ff88; }
+    .card { display: inline-block; padding: 20px; margin: 10px; background: white; color: black; border-radius: 10px; font-size: 24px; }
+    #logs { height: 300px; overflow-y: scroll; background: #0f0f23; padding: 10px; font-family: monospace; font-size: 12px; }
+    .log-entry { margin: 2px 0; padding: 3px; }
+    .winner { color: #00ff88; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>🐉 Dragon Tiger 🐅</h1>
+  
+  <div class="box">
+    <h3>Connection</h3>
+    <button onclick="connect()">Connect to Server</button>
+    <button onclick="joinGame()">Join Game</button>
+    <span id="connectionStatus">❌ Disconnected</span>
+  </div>
+
+  <div class="box">
+    <h3>Timer</h3>
+    <div id="timer">--</div>
+    <div>Status: <span id="gameStatus">Waiting...</span></div>
+  </div>
+
+  <div class="box">
+    <h3>Place Bet</h3>
+    <input type="number" id="betAmount" value="100" min="10" max="10000">
+    <button class="dragon" onclick="placeBet(0)">🐉 Dragon (x2)</button>
+    <button class="tiger" onclick="placeBet(1)">🐅 Tiger (x2)</button>
+    <button class="tie" onclick="placeBet(2)">🤝 Tie (x2)</button>
+  </div>
+
+  <div class="box">
+    <h3>Cards</h3>
+    <div>Dragon: <span id="dragonCard" class="card">?</span></div>
+    <div>Tiger: <span id="tigerCard" class="card">?</span></div>
+    <div id="winner" class="winner"></div>
+  </div>
+
+  <div class="box">
+    <h3>Your Bets</h3>
+    <div>Dragon: ₹<span id="myDragonBet">0</span></div>
+    <div>Tiger: ₹<span id="myTigerBet">0</span></div>
+    <div>Tie: ₹<span id="myTieBet">0</span></div>
+    <div>Balance: ₹<span id="myBalance">1000</span></div>
+  </div>
+
+  <div class="box">
+    <h3>Game Logs</h3>
+    <div id="logs"></div>
+  </div>
+
+  <script>
+    let socket;
+    let playerId = 'player-' + Math.random().toString(36).substr(2, 9);
+    let roomId = '833333';
+    let currentRound = 1;
+    let balance = 1000;
+
+    function log(message, type = 'info') {
+      const logs = document.getElementById('logs');
+      const div = document.createElement('div');
+      div.className = 'log-entry';
+      div.style.color = type === 'winner' ? '#00ff88' : type === 'error' ? '#ff6b6b' : '#fff';
+      div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logs.appendChild(div);
+      logs.scrollTop = logs.scrollHeight;
+    }
+
+    function connect() {
+      socket = io('http://localhost:3000');
+      
+      socket.on('connect', () => {
+        document.getElementById('connectionStatus').textContent = '✅ Connected';
+        log('Connected to server');
+      });
+
+      socket.on('disconnect', () => {
+        document.getElementById('connectionStatus').textContent = '❌ Disconnected';
+        log('Disconnected from server', 'error');
+      });
+
+      socket.on('dragon-tiger-res', (data) => {
+        handleGameEvent(data);
+      });
+    }
+
+    function joinGame() {
+      if (!socket) {
+        alert('Please connect first!');
+        return;
+      }
+
+      socket.emit('join-dragon-tiger', {
+        playerId: playerId,
+        roomId: roomId,
+        playerData: {
+          email: 'test@test.com',
+          playerName: 'Test Player',
+          balance: balance
+        }
+      });
+
+      log(`Joined game as ${playerId}`);
+    }
+
+    function placeBet(betType) {
+      if (!socket) {
+        alert('Please connect and join first!');
+        return;
+      }
+
+      const amount = parseInt(document.getElementById('betAmount').value);
+      
+      if (amount > balance) {
+        alert('Insufficient balance!');
+        return;
+      }
+
+      socket.emit('bet-dragon-tiger', {
+        playerId: playerId,
+        roomId: roomId,
+        roundId: currentRound,
+        amount: amount,
+        betType: betType
+      });
+
+      balance -= amount;
+      updateBalance();
+
+      const betNames = ['Dragon', 'Tiger', 'Tie'];
+      log(`Bet ₹${amount} on ${betNames[betType]}`);
+
+      // Update display
+      if (betType === 0) {
+        document.getElementById('myDragonBet').textContent = 
+          parseInt(document.getElementById('myDragonBet').textContent) + amount;
+      } else if (betType === 1) {
+        document.getElementById('myTigerBet').textContent = 
+          parseInt(document.getElementById('myTigerBet').textContent) + amount;
+      } else {
+        document.getElementById('myTieBet').textContent = 
+          parseInt(document.getElementById('myTieBet').textContent) + amount;
+      }
+    }
+
+    function handleGameEvent(data) {
+      log(`Event: ${data.ev}`);
+
+      switch(data.ev) {
+        case 'start-time-dragon-tiger':
+          document.getElementById('timer').textContent = data.time;
+          document.getElementById('gameStatus').textContent = 'Betting Open!';
+          break;
+
+        case 'run-dragon-tiger':
+          document.getElementById('gameStatus').textContent = 'Cards Revealed!';
+          document.getElementById('timer').textContent = '0';
+          
+          if (data.roomMasterData.card1) {
+            document.getElementById('dragonCard').textContent = 
+              `${data.roomMasterData.card1.cardValue} ${getSuit(data.roomMasterData.card1.cardColor)}`;
+          }
+          if (data.roomMasterData.card2) {
+            document.getElementById('tigerCard').textContent = 
+              `${data.roomMasterData.card2.cardValue} ${getSuit(data.roomMasterData.card2.cardColor)}`;
+          }
+          break;
+
+        case 'dragon-tiger-win':
+          const winners = ['Dragon', 'Tiger', 'Tie'];
+          document.getElementById('winner').textContent = `🏆 ${winners[data.win]} Wins!`;
+          log(`WINNER: ${winners[data.win]}`, 'winner');
+          
+          // Reset bets display
+          setTimeout(() => {
+            document.getElementById('myDragonBet').textContent = '0';
+            document.getElementById('myTigerBet').textContent = '0';
+            document.getElementById('myTieBet').textContent = '0';
+            document.getElementById('dragonCard').textContent = '?';
+            document.getElementById('tigerCard').textContent = '?';
+            document.getElementById('winner').textContent = '';
+          }, 3000);
+          break;
+
+        case 'infinite-update-player-balance':
+          if (data.winBalance) {
+            balance += data.winBalance;
+            updateBalance();
+            log(`Won ₹${data.winBalance}!`, 'winner');
+          }
+          break;
+
+        case 'start-round-dragon-tiger':
+          currentRound = data.roomMasterData.roundId;
+          document.getElementById('gameStatus').textContent = 'New Round Starting...';
+          break;
+
+        case 'bot-bet-dragon-tiger':
+          log(`${data.data.length} bot(s) placed bets`);
+          break;
+      }
+    }
+
+    function getSuit(color) {
+      const suits = ['♠', '♥', '♦', '♣'];
+      return suits[color] || '?';
+    }
+
+    function updateBalance() {
+      document.getElementById('myBalance').textContent = balance;
+    }
+
+    // Auto-connect on load
+    window.onload = () => {
+      log('Page loaded. Click "Connect to Server" to start.');
+    };
+  </script>
+</body>
+</html>

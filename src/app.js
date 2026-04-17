@@ -11,6 +11,7 @@ const userLogsMiddleware = require("./middlewares/userLogs.middleware");
 const adminModule = require("./modules/admin");
 const userModule = require("./modules/user");
 const matchesModule = require("./modules/matches");
+const dragonTigerRoutes = require("./modules/games/routes/dragonTiger.routes");
 
 const app = express();
 // If running behind a proxy (nginx, load balancer), trust specific proxy headers
@@ -121,6 +122,7 @@ app.get("/health", async (req, res) => {
 app.use(`/api${adminModule.prefix}`, adminModule.routes);
 app.use(`/api${userModule.prefix}`, userModule.routes);
 app.use(`/api${matchesModule.prefix}`, matchesModule.routes);
+app.use("/api/games/dragon-tiger", dragonTigerRoutes);
 
 // ============================================
 // 404 HANDLER

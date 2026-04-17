@@ -15,6 +15,7 @@ const settingsRoutes = require("./settings.routes");
 const historyRoutes = require("./history.routes");
 const userLogsController = require("../controllers/userLogs.controller");
 const permissionRoutes = require("./permission.routes");
+const gameDataController = require("../../games/controllers/gameData.controller");
 
 // Apply authentication to all admin routes
 router.use(protect);
@@ -130,5 +131,11 @@ router.use("/history", historyRoutes);
 // Permission Routes (Superadmin only)
 // ============================================
 router.use("/permissions", permissionRoutes);
+
+// ============================================
+// Game Data Route (Redis cache + Third-party API)
+// ============================================
+router.get("/game/:gameId", gameDataController.getGameDataById);
+router.get("/scoreboard/:gameId", gameDataController.getScoreboardById);
 
 module.exports = router;

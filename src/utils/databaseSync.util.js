@@ -15,7 +15,11 @@ const smartSync = async () => {
     { name: "UserActivity", file: "user_activity.model.js" },
     { name: "History", file: "history.model.js" },
     { name: "UserLog", file: "user_logs.model.js" },
-    { name: "Permission", file: "permission.model.js" }
+    { name: "Permission", file: "permission.model.js" },
+    { name: "DragonTigerTournament", file: "../modules/games/models/dragonTigerTournament.model.js" },
+    { name: "DragonTigerRoom", file: "../modules/games/models/dragonTigerRoom.model.js" },
+    { name: "DragonTigerRoomJoin", file: "../modules/games/models/dragonTigerRoomJoin.model.js" },
+    { name: "DragonTigerBet", file: "../modules/games/models/dragonTigerBet.model.js" }
   ];
   
   logger.info("📋 Note: User model now includes 'userCreationLimit' field for custom user limits");

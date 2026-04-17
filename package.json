@@ -29,6 +29,7 @@
     "pg": "^8.9.0",
     "redis": "^5.11.0",
     "sequelize": "^6.35.0",
+    "socket.io": "^4.7.5",
     "sqlite3": "^5.1.6",
     "ua-parser-js": "^1.0.35",
     "winston": "^3.8.2"
