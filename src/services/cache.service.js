@@ -87,6 +87,27 @@ class CacheManager {
   }
 
   /**
+   * Get cached data by key
+   * @param {string} key - Cache key
+   * @returns {Promise<any>} Cached data or null
+   */
+  async get(key) {
+    try {
+      const cached = await CacheService.get(key);
+      if (cached !== null) {
+        logger.debug(`Cache GET: ${key} (HIT)`);
+        return cached;
+      }
+      logger.debug(`Cache GET: ${key} (MISS)`);
+      return null;
+    } catch (err) {
+      this.cacheErrorCount++;
+      logger.error(`Cache get error for key ${key}: ${err.message}`);
+      return null;
+    }
+  }
+
+  /**
    * Delete cache key
    * @param {string|string[]} keys - Single key or array of keys
    */
