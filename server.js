@@ -1,6 +1,5 @@
 require("dotenv").config();
 const http = require("http");
-const { Server } = require("socket.io");
 const app = require("./src/app");
 const logger = require("./src/config/logger");
 const { sequelize } = require("./src/models");
@@ -8,23 +7,15 @@ const smartSync = require("./src/utils/databaseSync.util");
 const matchListService = require("./src/services/matchList.service");
 const matchScoreboardService = require("./src/services/matchScoreboard.service");
 const matchDataService = require("./src/services/matchData.service");
-const dragonTigerController = require("./src/modules/games/controllers/dragonTiger.controller");
+const dragonTigerSocket = require("./src/modules/games/sockets/dragonTiger.socket");
 
 const PORT = process.env.PORT || 3000;
 
 // Create HTTP server
 const server = http.createServer(app);
 
-// Setup Socket.IO
-const io = new Server(server, {
-  cors: {
-    origin: process.env.CLIENT_URL || "*",
-    methods: ["GET", "POST"],
-  },
-});
-
-// Initialize Dragon Tiger socket events
-dragonTigerController.handleSocketEvents(io);
+// Initialize Dragon Tiger socket events with Redis adapter
+const io = dragonTigerSocket(server);
 
 // Start server
 const startServer = async () => {

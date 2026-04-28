@@ -159,6 +159,26 @@
       log(`Event: ${data.ev}`);
 
       switch(data.ev) {
+        case 'join-dragon-tiger':
+          if (data.roomMasterData) {
+            const status = data.roomMasterData.status;
+            document.getElementById('gameStatus').textContent = 
+              status === 'start' ? 'Betting Open!' : 
+              status === 'run' ? 'Cards Revealed!' : 
+              status === 'completed' ? 'Round Complete' : 'Waiting...';
+            log(`Joined room - Status: ${status}, Room: ${data.roomId}`);
+          }
+          break;
+
+        case 'join-confirmation':
+          log(data.message, 'success');
+          break;
+
+        case 'status-change-dragon-tiger':
+          document.getElementById('gameStatus').textContent = data.message || 'Status Changed';
+          log(`Room status: ${data.status}`, 'info');
+          break;
+
         case 'start-time-dragon-tiger':
           document.getElementById('timer').textContent = data.time;
           document.getElementById('gameStatus').textContent = 'Betting Open!';

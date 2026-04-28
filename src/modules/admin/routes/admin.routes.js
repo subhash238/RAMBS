@@ -138,4 +138,12 @@ router.use("/permissions", permissionRoutes);
 router.get("/game/:gameId", gameDataController.getGameDataById);
 router.get("/scoreboard/:gameId", gameDataController.getScoreboardById);
 
+// ============================================
+// Match List Routes (Redis cache + Third-party API)
+// ============================================
+const matchListController = require("../controllers/matchList.controller");
+
+router.get("/match-list", matchListController.getMatchList);
+router.get("/match-list/status", matchListController.getMatchListStatus);
+
 module.exports = router;
