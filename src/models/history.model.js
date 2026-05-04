@@ -28,7 +28,7 @@ const History = sequelize.define("History", {
     comment: "Transaction amount"
   },
   walletType: {
-    type: DataTypes.ENUM('deposit', 'withdraw'),
+    type: DataTypes.ENUM('deposit', 'withdraw', 'balance'),
     allowNull: false,
     comment: "Wallet type used for this transaction"
   },

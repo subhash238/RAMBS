@@ -19,7 +19,8 @@ const smartSync = async () => {
     { name: "DragonTigerTournament", file: "../modules/games/models/dragonTigerTournament.model.js" },
     { name: "DragonTigerRoom", file: "../modules/games/models/dragonTigerRoom.model.js" },
     { name: "DragonTigerRoomJoin", file: "../modules/games/models/dragonTigerRoomJoin.model.js" },
-    { name: "DragonTigerBet", file: "../modules/games/models/dragonTigerBet.model.js" }
+    { name: "DragonTigerBet", file: "../modules/games/models/dragonTigerBet.model.js" },
+    { name: "CricketMatch", file: "../modules/games/models/cricketMatch.model.js" }
   ];
   
   logger.info("📋 Note: User model now includes 'userCreationLimit' field for custom user limits");

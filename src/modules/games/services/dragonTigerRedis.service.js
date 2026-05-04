@@ -80,7 +80,7 @@ const getRoomDetails = async (roomId) => {
 
     return {
       roomId: data.roomId,
-      status: data.status || "wait",
+      status: data.status || "start",
       roundId: parseInt(data.roundId) || 1,
       botData: JSON.parse(data.botData || "[]"),
       roundHistory: JSON.parse(data.roundHistory || "[]"),
@@ -116,7 +116,7 @@ const setRoomDetails = async (roomId, details) => {
     const key = `${PREFIX.ROOM_DETAILS}:${roomId}`;
     const data = {
       roomId: details.roomId,
-      status: details.status || "wait",
+      status: details.status || "start",
       roundId: String(details.roundId || 1),
       botData: JSON.stringify(details.botData || []),
       roundHistory: JSON.stringify(details.roundHistory || []),

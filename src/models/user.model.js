@@ -37,17 +37,23 @@ const User = sequelize.define("User", {
     defaultValue: false,
     allowNull: false,
   },
-  depositBalance: {
+  // depositBalance: {
+  //   type: DataTypes.DECIMAL(15, 2),
+  //   defaultValue: 0.00,
+  //   allowNull: false,
+  //   comment: "Total deposited balance for the user"
+  // },
+  // withdrawBalance: {
+  //   type: DataTypes.DECIMAL(15, 2),
+  //   defaultValue: 0.00,
+  //   allowNull: false,
+  //   comment: "Total withdrawn balance for the user"
+  // },
+  balance: {
     type: DataTypes.DECIMAL(15, 2),
     defaultValue: 0.00,
     allowNull: false,
-    comment: "Total deposited balance for the user"
-  },
-  withdrawBalance: {
-    type: DataTypes.DECIMAL(15, 2),
-    defaultValue: 0.00,
-    allowNull: false,
-    comment: "Total withdrawn balance for the user"
+    comment: "User wallet balance"
   },
   userCreationLimit: {
     type: DataTypes.INTEGER,

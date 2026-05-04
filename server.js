@@ -7,6 +7,7 @@ const smartSync = require("./src/utils/databaseSync.util");
 const matchListService = require("./src/services/matchList.service");
 const matchScoreboardService = require("./src/services/matchScoreboard.service");
 const matchDataService = require("./src/services/matchData.service");
+const cricketMatchSync = require("./src/services/cricketMatchSync.service");
 const dragonTigerSocket = require("./src/modules/games/sockets/dragonTiger.socket");
 
 const PORT = process.env.PORT || 3000;
@@ -44,6 +45,9 @@ const startServer = async () => {
       
       // Start match data scheduler (updates every 5 seconds)
       //matchDataService.startScheduler();
+      
+      // Start cricket match sync scheduler (updates every 30 seconds)
+      cricketMatchSync.startSyncScheduler();
     });
   } catch (err) {
     logger.error(`💥 Failed to start server: ${err.message}`);

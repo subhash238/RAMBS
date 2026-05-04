@@ -127,8 +127,9 @@ class UserHistoryService {
           "id",
           "name",
           "email",
-          "depositBalance",
-          "withdrawBalance",
+          // "depositBalance",
+          // "withdrawBalance",
+          "balance",
         ],
         where: {
           isDeleted: {
@@ -169,8 +170,9 @@ class UserHistoryService {
           id: user.id,
           name: user.name,
           email: user.email,
-          depositBalance: user.depositBalance,
-          withdrawBalance: user.withdrawBalance,
+          // depositBalance: user.depositBalance,
+          // withdrawBalance: user.withdrawBalance,
+          balance: user.balance,
         },
         message: "History record created successfully",
       };
@@ -509,16 +511,18 @@ class UserHistoryService {
   }
 
   /**
-   * Update user balance based on transaction type and wallet (using existing user object)
+   * Update user balance based on transaction type (using existing user object)
    * @param {object} user - User object (already fetched)
    * @param {string} tranType - Transaction type (debit/credit)
-   * @param {string} walletType - Wallet type (deposit/withdraw)
+   * @param {string} walletType - Wallet type (balance only)
    * @param {number} amount - Transaction amount
    */
   static async updateUserBalanceWithUser(user, tranType, walletType, amount) {
     try {
       const parsedAmount = parseFloat(amount);
 
+      /*
+      // OLD: Multi-wallet logic (deposit/withdraw balance)
       // Balance update logic for all combinations
       if (tranType === "debit") {
         // Debit means CUTTING from wallet
@@ -566,10 +570,6 @@ class UserHistoryService {
             `Credited ${parsedAmount} to deposit balance. New: ${user.depositBalance}`,
           );
         }
-      } else {
-        throw new Error(
-          `Invalid transaction type: ${tranType}. Must be: debit, credit`,
-        );
       }
 
       // Final validation: Ensure no negative balances
@@ -577,6 +577,39 @@ class UserHistoryService {
         parseFloat(user.depositBalance || 0) < 0 ||
         parseFloat(user.withdrawBalance || 0) < 0
       ) {
+        throw new Error("Balance cannot be negative. Transaction rolled back.");
+      }
+      */
+
+      // NEW: Single balance field update logic
+      if (tranType === "debit") {
+        // Debit means CUTTING from balance
+        const currentBalance = parseFloat(user.balance || 0);
+        if (currentBalance < parsedAmount) {
+          throw new Error(
+            `Insufficient balance. Available: ${currentBalance}, Required: ${parsedAmount}`,
+          );
+        }
+        user.balance = (currentBalance - parsedAmount).toFixed(2);
+        logger.info(
+          `Debited ${parsedAmount} from balance. New: ${user.balance}`,
+        );
+      } else if (tranType === "credit") {
+        // Credit means ADDING to balance
+        user.balance = (
+          parseFloat(user.balance || 0) + parsedAmount
+        ).toFixed(2);
+        logger.info(
+          `Credited ${parsedAmount} to balance. New: ${user.balance}`,
+        );
+      } else {
+        throw new Error(
+          `Invalid transaction type: ${tranType}. Must be: debit, credit`,
+        );
+      }
+
+      // Final validation: Ensure no negative balance
+      if (parseFloat(user.balance || 0) < 0) {
         throw new Error("Balance cannot be negative. Transaction rolled back.");
       }
     } catch (err) {

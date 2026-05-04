@@ -284,7 +284,7 @@ const startNextRound = async (roomId) => {
     ...roomDetails,
     roundId: newRoundId,
     startRoundTimer: false,
-    status: "wait",
+    status: "start", // Always start with betting open
     card1: {},
     card2: {},
     botData,
@@ -486,9 +486,10 @@ module.exports = (server) => {
 
         // Check room status - only allow bets when status is "start"
         const roomDetails = await dtRedis.getRoomDetails(roomId);
-        logger.info(`Bet attempt - Room: ${roomId}, Status: ${roomDetails?.status}, Player: ${playerId}`);
+        logger.info(`[BET] Room: ${roomId}, Status: ${roomDetails?.status}, Player: ${playerId}, Amount: ${amount}`);
 
         if (!roomDetails) {
+          logger.error(`[BET] Room not found: ${roomId}`);
           socket.emit("dragon-tiger-res", {
             status: false,
             ev: "bet-error",
@@ -498,6 +499,7 @@ module.exports = (server) => {
         }
 
         if (roomDetails.status !== "start") {
+          logger.warn(`[BET] REJECTED - Room ${roomId} status is '${roomDetails.status}', expected 'start'`);
           socket.emit("dragon-tiger-res", {
             status: false,
             ev: "bet-error",
@@ -505,6 +507,7 @@ module.exports = (server) => {
           });
           return;
         }
+        logger.info(`[BET] ACCEPTED - Room ${roomId} status is 'start'`);
 
         // Store bet in Redis
         await dtRedis.storeBet(roomId, roundId, playerId, {
@@ -537,11 +540,13 @@ module.exports = (server) => {
         };
         socket.emit("dragon-tiger-res", resJson);
       } catch (err) {
-        logger.error(`Error placing bet: ${err.message}`);
+        logger.error(`[BET ERROR] Room: ${roomId}, Player: ${playerId}, Error: ${err.message}`);
+        logger.error(`[BET ERROR] Stack: ${err.stack}`);
         socket.emit("dragon-tiger-res", {
           status: false,
           ev: "bet-error",
           error: err.message,
+          details: err.stack,
         });
       }
     });
