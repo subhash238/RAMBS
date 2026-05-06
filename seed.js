@@ -14,7 +14,7 @@ const seedUsers = async () => {
     const userCount = await User.count();
     
     // FORCE RESET: Always reset superadmin password
-    const superadmin = await User.findOne({ where: { email: "superadmin1@example.com" } });
+    const superadmin = await User.findOne({ where: { email: "superadmin@example.com" } });
     if (superadmin) {
       superadmin.password = await bcrypt.hash("Superadmin@123", 10);
       await superadmin.save();
@@ -31,7 +31,7 @@ const seedUsers = async () => {
     const users = [
       {
         name: "Super Admin",
-        email: "superadmin1@example.com",
+        email: "superadmin@example.com",
         password: await bcrypt.hash("Superadmin@123", 10),
         role: "superadmin",
       },
