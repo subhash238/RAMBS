@@ -52,6 +52,16 @@ const History = sequelize.define("History", {
     type: DataTypes.JSON,
     allowNull: true,
     comment: "Additional transaction data (JSON object)"
+  },
+  sendedBy: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    comment: "Who sent/created this transaction (e.g., superadmin/username)"
+  },
+  closingBalance: {
+    type: DataTypes.DECIMAL(15, 2),
+    allowNull: true,
+    comment: "Balance after this transaction (for account statement)"
   }
 }, {
   tableName: "histories",

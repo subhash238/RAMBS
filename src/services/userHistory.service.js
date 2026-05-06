@@ -142,6 +142,12 @@ class UserHistoryService {
         throw new Error("User not found or has been deleted");
       }
 
+      // Update user balance based on transaction type
+      await this.updateUserBalanceWithUser(user, tranType, walletType, amount);
+
+      // Get sendedBy from req.user
+      const sendedBy = req.user ? `${req.user.role || 'user'}/${req.user.username || req.user.name || req.user.email}` : null;
+
       // Create history record
       const history = await History.create({
         userId,
@@ -153,10 +159,9 @@ class UserHistoryService {
         status: status || "active",
         gameId: gameId || null,
         data: req.body.data || null,
+        sendedBy,
+        closingBalance: user.balance || 0,
       });
-
-      // Update user balance based on transaction type and wallet
-      await this.updateUserBalanceWithUser(user, tranType, walletType, amount);
 
       // Save the updated user (no need to fetch again)
       await user.save();

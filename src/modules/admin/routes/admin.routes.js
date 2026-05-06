@@ -146,4 +146,12 @@ const matchListController = require("../controllers/matchList.controller");
 router.get("/match-list", matchListController.getMatchList);
 router.get("/match-list/status", matchListController.getMatchListStatus);
 
+// ============================================
+// Account Statement Routes
+// ============================================
+const accountStatementController = require("../controllers/accountStatement.controller");
+
+router.get("/account-statement", accountStatementController.getAccountStatement);
+router.get("/account-statement/games", accountStatementController.getGameList);
+
 module.exports = router;

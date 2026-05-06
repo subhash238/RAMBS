@@ -12,9 +12,18 @@ const seedUsers = async () => {
 
     // Check if users already exist
     const userCount = await User.count();
+    
+    // FORCE RESET: Always reset superadmin password
+    const superadmin = await User.findOne({ where: { email: "superadmin1@example.com" } });
+    if (superadmin) {
+      superadmin.password = await bcrypt.hash("Superadmin@123", 10);
+      await superadmin.save();
+      logger.success("✅ Superadmin password reset to: Superadmin@123");
+    }
+    
     if (userCount > 0) {
-      logger.warn(`Database already has ${userCount} users. Skipping seed.`);
-      logger.info("To reset database, delete rbams.db and run seed again.");
+      logger.warn(`Database already has ${userCount} users. Skipping new user creation.`);
+      logger.info("Only superadmin password was reset.");
       process.exit(0);
     }
 
@@ -22,7 +31,7 @@ const seedUsers = async () => {
     const users = [
       {
         name: "Super Admin",
-        email: "superadmin@example.com",
+        email: "superadmin1@example.com",
         password: await bcrypt.hash("Superadmin@123", 10),
         role: "superadmin",
       },
