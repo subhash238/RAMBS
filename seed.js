@@ -13,17 +13,26 @@ const seedUsers = async () => {
     // Check if users already exist
     const userCount = await User.count();
     
-    // FORCE RESET: Always reset superadmin password
-    const superadmin = await User.findOne({ where: { email: "superadmin@example.com" } });
+    // FORCE RESET: Reset superadmin password OR create if doesn't exist
+    let superadmin = await User.findOne({ where: { email: "superadmin@example.com" } });
     if (superadmin) {
       superadmin.password = await bcrypt.hash("Superadmin@123", 10);
       await superadmin.save();
       logger.success("✅ Superadmin password reset to: Superadmin@123");
+    } else {
+      // Create superadmin if not exists
+      superadmin = await User.create({
+        name: "Super Admin",
+        email: "superadmin@example.com",
+        password: await bcrypt.hash("Superadmin@123", 10),
+        role: "superadmin",
+      });
+      logger.success("✅ Superadmin created with password: Superadmin@123");
     }
     
     if (userCount > 0) {
       logger.warn(`Database already has ${userCount} users. Skipping new user creation.`);
-      logger.info("Only superadmin password was reset.");
+      logger.info("Superadmin ensured (created or password reset).");
       process.exit(0);
     }
 
